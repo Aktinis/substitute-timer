@@ -1,0 +1,10 @@
+{
+  "name": "Substitute Timer",
+  "short_name": "Sub Timer",
+  "start_url": ".",
+  "scope": ".",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#232428",
+  "theme_color": "#18191c"
+}

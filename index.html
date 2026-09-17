@@ -1,133 +1,134 @@
 <!DOCTYPE html>
-<html lang="en-us">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity Web Player | Substitute Timer</title>
-    <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link rel="stylesheet" href="TemplateData/style.css">
-  </head>
-  <body>
-    <div id="unity-container" class="unity-desktop">
-      <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
-      <div id="unity-loading-bar">
-        <div id="unity-logo"></div>
-        <div id="unity-progress-bar-empty">
-          <div id="unity-progress-bar-full"></div>
-        </div>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#18191c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Sub Timer">
+  <title>Substitute Timer</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Setup -->
+  <section id="setup" class="screen">
+    <header class="setup-top">
+      <h1>SUBSTITUTE TIMER</h1>
+      <div class="stepper">
+        <span class="stepper-label">Minutes</span>
+        <button class="btn step" data-interval="-60">-</button>
+        <output id="minutes">5</output>
+        <button class="btn step" data-interval="60">+</button>
       </div>
-      <div id="unity-warning"> </div>
-      <div id="unity-footer">
-        <div id="unity-logo-title-footer"></div>
-        <div id="unity-fullscreen-button"></div>
-        <div id="unity-build-title">Substitute Timer</div>
+      <div class="stepper">
+        <span class="stepper-label">Seconds</span>
+        <button class="btn step" data-interval="-5">-</button>
+        <output id="seconds">00</output>
+        <button class="btn step" data-interval="5">+</button>
+      </div>
+      <button id="start" class="btn green big">START</button>
+    </header>
+
+    <div class="setup-teams">
+      <div class="setup-team" data-team="0">
+        <div class="team-header">
+          <div class="team-title">BLACK</div>
+          <div class="counter">
+            <button class="btn step" data-count="-1">-</button>
+            <output class="count">7</output>
+            <button class="btn step" data-count="1">+</button>
+            <span class="counter-label">players</span>
+          </div>
+        </div>
+        <div class="name-list"></div>
+      </div>
+      <div class="setup-team" data-team="1">
+        <div class="team-header">
+          <button class="team-title color-cycle" type="button">ORANGE<small>tap to change color</small></button>
+          <div class="counter">
+            <button class="btn step" data-count="-1">-</button>
+            <output class="count">7</output>
+            <button class="btn step" data-count="1">+</button>
+            <span class="counter-label">players</span>
+          </div>
+        </div>
+        <div class="name-list"></div>
       </div>
     </div>
-    <script>
-      var canvas = document.querySelector("#unity-canvas");
+  </section>
 
-      // Shows a temporary message banner/ribbon for a few seconds, or
-      // a permanent error message on top of the canvas if type=='error'.
-      // If type=='warning', a yellow highlight color is used.
-      // Modify or remove this function to customize the visually presented
-      // way that non-critical warnings and error messages are presented to the
-      // user.
-      function unityShowBanner(msg, type) {
-        var warningBanner = document.querySelector("#unity-warning");
-        function updateBannerVisibility() {
-          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
-        }
-        var div = document.createElement('div');
-        div.innerHTML = msg;
-        warningBanner.appendChild(div);
-        if (type == 'error') div.style = 'background: red; padding: 10px;';
-        else {
-          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
-          setTimeout(function() {
-            warningBanner.removeChild(div);
-            updateBannerVisibility();
-          }, 5000);
-        }
-        updateBannerVisibility();
-      }
+  <!-- Session -->
+  <section id="session" class="screen" hidden>
+    <div id="band">
+      <div id="phase">NEXT SUBSTITUTION IN</div>
+      <div id="time">5:00</div>
+    </div>
 
-      var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/substitute-timer-build.loader.js";
-      var config = {
-        arguments: [],
-        dataUrl: buildUrl + "/substitute-timer-build.data",
-        frameworkUrl: buildUrl + "/substitute-timer-build.framework.js",
-        codeUrl: buildUrl + "/substitute-timer-build.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "DefaultCompany",
-        productName: "Substitute Timer",
-        productVersion: "0.1.0",
-        showBanner: unityShowBanner,
-        // errorHandler: function(err, url, line) {
-        //    alert("error " + err + " occurred at line " + line);
-        //    // Return 'true' if you handled this error and don't want Unity
-        //    // to process it further, 'false' otherwise.
-        //    return true;
-        // },
-      };
+    <div class="session-teams">
+      <div class="session-team" data-team="0">
+        <div class="session-head">
+          <span class="title">BLACK</span>
+          <span class="sub-label">NO SUBSTITUTION YET</span>
+        </div>
+        <div class="chip in"><span class="tag">IN</span><span class="name">-</span></div>
+        <div class="chip out"><span class="tag">OUT</span><span class="name">-</span></div>
+        <div class="previous">Previous: -</div>
+      </div>
+      <div class="session-team" data-team="1">
+        <div class="session-head">
+          <span class="title">ORANGE</span>
+          <span class="sub-label">NO SUBSTITUTION YET</span>
+        </div>
+        <div class="chip in"><span class="tag">IN</span><span class="name">-</span></div>
+        <div class="chip out"><span class="tag">OUT</span><span class="name">-</span></div>
+        <div class="previous">Previous: -</div>
+      </div>
+    </div>
 
-      // By default, Unity keeps WebGL canvas render target size matched with
-      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
-      // Set this to false if you want to decouple this synchronization from
-      // happening inside the engine, and you would instead like to size up
-      // the canvas DOM size and WebGL render target sizes yourself.
-      // config.matchWebGLToCanvasSize = false;
+    <nav class="controls">
+      <button id="pause" class="btn">PAUSE</button>
+      <button id="back" class="btn blue">BACK</button>
+      <button id="skip" class="btn blue">SKIP</button>
+      <button id="players" class="btn">PLAYERS</button>
+      <button id="stop" class="btn red">STOP</button>
+    </nav>
+  </section>
 
-      // If you would like all file writes inside Unity Application.persistentDataPath
-      // directory to automatically persist so that the contents are remembered when
-      // the user revisits the site the next time, uncomment the following line:
-      // config.autoSyncPersistentDataPath = true;
-      // This autosyncing is currently not the default behavior to avoid regressing
-      // existing user projects that might rely on the earlier manual
-      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
-      // expected to change.
+  <!-- Players panel -->
+  <section id="roster" hidden>
+    <div class="roster-box">
+      <header class="roster-top">
+        <h2>PLAYERS</h2>
+        <p class="hint">Hold and drag onto a player to swap. Drop on a team to move to the end of its bench.</p>
+        <button id="roster-close" class="btn">CLOSE</button>
+      </header>
+      <div id="roster-message"></div>
+      <div class="roster-columns">
+        <div class="roster-column" data-team="0">
+          <div class="roster-head">BLACK</div>
+          <div class="roster-list"></div>
+          <form class="add-row">
+            <input type="text" maxlength="24" placeholder="New player name..." autocomplete="off" enterkeyhint="done">
+            <button class="btn green" type="submit">ADD</button>
+          </form>
+        </div>
+        <div class="roster-column" data-team="1">
+          <div class="roster-head">ORANGE</div>
+          <div class="roster-list"></div>
+          <form class="add-row">
+            <input type="text" maxlength="24" placeholder="New player name..." autocomplete="off" enterkeyhint="done">
+            <button class="btn green" type="submit">ADD</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
+  <div id="rotate">TURN YOUR PHONE SIDEWAYS</div>
 
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
-        document.querySelector("#unity-container").className = "unity-mobile";
-        canvas.className = "unity-mobile";
-
-        // To lower canvas resolution on mobile devices to gain some
-        // performance, uncomment the following line:
-        // config.devicePixelRatio = 1;
-
-
-      } else {
-        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
-        canvas.style.width = "960px";
-        canvas.style.height = "600px";
-      }
-
-      document.querySelector("#unity-loading-bar").style.display = "block";
-
-      var script = document.createElement("script");
-      script.src = loaderUrl;
-      script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
-              }).then((unityInstance) => {
-                document.querySelector("#unity-loading-bar").style.display = "none";
-                document.querySelector("#unity-fullscreen-button").onclick = () => {
-                  unityInstance.SetFullscreen(1);
-                };
-
-              }).catch((message) => {
-                alert(message);
-              });
-            };
-
-      document.body.appendChild(script);
-
-    </script>
-  </body>
+  <script src="app.js"></script>
+</body>
 </html>
