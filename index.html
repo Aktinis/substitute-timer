@@ -63,44 +63,45 @@
   <!-- Session -->
   <section id="session" class="screen" hidden>
     <div id="band">
-      <div id="phase">NEXT SUBSTITUTION IN</div>
-      <div id="time">5:00</div>
+      <button id="back" class="btn blue arrow left" type="button" aria-label="Previous substitution"></button>
+      <button id="time" type="button" aria-label="Pause or resume">5:00</button>
+      <button id="skip" class="btn blue arrow right" type="button" aria-label="Next substitution"></button>
+      <button id="menu-button" class="btn menu-button" type="button" aria-label="Menu"><span></span></button>
+      <div id="paused-label" hidden>PAUSED - TAP TIME TO RESUME</div>
+    </div>
+
+    <div id="menu" hidden>
+      <button id="players" class="btn" type="button">PLAYERS</button>
+      <button id="open-log" class="btn" type="button">HISTORY</button>
+      <button id="stop" class="btn red" type="button">STOP</button>
     </div>
 
     <div class="session-teams">
       <div class="session-team" data-team="0">
-        <div class="session-head">
-          <span class="title">BLACK</span>
-          <span class="sub-label">NO SUBSTITUTION YET</span>
-        </div>
         <div class="chip in"><span class="tag">IN</span><span class="name">-</span></div>
         <div class="chip out"><span class="tag">OUT</span><span class="name">-</span></div>
-        <div class="previous">Previous: -</div>
+        <div class="next">
+          <span class="next-tag">NEXT</span>
+          <span class="mini in">-</span>
+          <span class="mini out">-</span>
+        </div>
       </div>
       <div class="session-team" data-team="1">
-        <div class="session-head">
-          <span class="title">ORANGE</span>
-          <span class="sub-label">NO SUBSTITUTION YET</span>
-        </div>
         <div class="chip in"><span class="tag">IN</span><span class="name">-</span></div>
         <div class="chip out"><span class="tag">OUT</span><span class="name">-</span></div>
-        <div class="previous">Previous: -</div>
+        <div class="next">
+          <span class="next-tag">NEXT</span>
+          <span class="mini in">-</span>
+          <span class="mini out">-</span>
+        </div>
       </div>
     </div>
-
-    <nav class="controls">
-      <button id="pause" class="btn">PAUSE</button>
-      <button id="back" class="btn blue">BACK</button>
-      <button id="skip" class="btn blue">SKIP</button>
-      <button id="players" class="btn">PLAYERS</button>
-      <button id="stop" class="btn red">STOP</button>
-    </nav>
   </section>
 
   <!-- Players panel -->
-  <section id="roster" hidden>
-    <div class="roster-box">
-      <header class="roster-top">
+  <section id="roster" class="overlay" hidden>
+    <div class="overlay-box">
+      <header class="overlay-top">
         <h2>PLAYERS</h2>
         <p class="hint">Hold and drag onto a player to swap. Drop on a team to move to the end of its bench.</p>
         <button id="roster-close" class="btn">CLOSE</button>
@@ -124,6 +125,18 @@
           </form>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- History -->
+  <section id="log" class="overlay" hidden>
+    <div class="overlay-box">
+      <header class="overlay-top">
+        <h2>HISTORY</h2>
+        <p class="hint">Substitutions made so far, newest first. BACK removes the last one.</p>
+        <button id="log-close" class="btn" type="button">CLOSE</button>
+      </header>
+      <ol id="log-list"></ol>
     </div>
   </section>
 

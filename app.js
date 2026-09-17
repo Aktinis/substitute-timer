@@ -36,7 +36,7 @@ const state = {
   endAt: 0,             // ms timestamp when the current timer ends
   pausedRemaining: 0,   // ms left while paused
   flashUntil: 0,
-  steps: [],            // per timer end: which teams swapped, so BACK can undo exactly those
+  steps: [],            // per timer end: { at, skipped, swaps }, feeds HISTORY and lets BACK undo
   lastShownSecond: -1,
 };
 
@@ -79,8 +79,94 @@ function undo(team) {
   team.names.unshift(last.outName);
 }
 
+// The next `count` swaps the rotation will make, without changing the team.
+function upcomingSwaps(team, count) {
+  const names = [...team.names];
+  const swaps = [];
+  for (let i = 0; i < count; i++) {
+    if (names.length <= ON_COURT) {
+      swaps.push(null);
+      continue;
+    }
+    const outName = names.shift();
+    swaps.push({ inName: names[ON_COURT - 1], outName });
+    names.push(outName);
+  }
+  return swaps;
+}
+
 function teamName(teamIndex) {
   return teamIndex === BLACK ? "BLACK" : TEAM_COLORS[state.colorIndex][0];
+}
+
+// ---------- History of substitutions made this session ----------
+
+// state.steps holds one entry per timer end: { at, skipped, swaps: [black swap | null, color swap | null] }.
+
+function renderLog() {
+  const list = $("#log-list");
+  if (state.steps.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = "No substitutions yet.";
+    list.replaceChildren(empty);
+    return;
+  }
+
+  list.replaceChildren(...state.steps.map((step, i) => {
+    const item = document.createElement("li");
+
+    const when = document.createElement("span");
+    when.className = "when";
+    when.textContent = new Date(step.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+
+    const number = document.createElement("span");
+    number.className = "number";
+    number.textContent = step.skipped ? `${i + 1} SKIP` : `${i + 1}`;
+
+    item.append(when, number, ...step.swaps.map((swap, teamIndex) => {
+      const cell = document.createElement("span");
+      cell.className = `swap team-${teamIndex}`;
+      if (swap) {
+        const inName = document.createElement("span");
+        inName.className = "in";
+        inName.textContent = swap.inName;
+        const outName = document.createElement("span");
+        outName.className = "out";
+        outName.textContent = swap.outName;
+        cell.append(inName, outName);
+      } else {
+        cell.textContent = "-";
+      }
+      return cell;
+    }));
+    return item;
+  }).reverse());
+}
+
+function openLog() {
+  closeMenu();
+  renderLog();
+  $("#log").hidden = false;
+  $("#log-list").scrollTop = 0;
+}
+
+function closeLog() {
+  $("#log").hidden = true;
+}
+
+// ---------- Menu ----------
+
+function openMenu() {
+  const button = $("#menu-button").getBoundingClientRect();
+  const menu = $("#menu");
+  menu.style.top = `${button.bottom + 6}px`;
+  menu.hidden = false;
+}
+
+function closeMenu() {
+  $("#menu").hidden = true;
+  resetStopButton();
 }
 
 // ---------- Sound (Web Audio, one voice that restarts) ----------
@@ -189,7 +275,6 @@ function applyTeamColor() {
   document.documentElement.style.setProperty("--team-text", contrastText(color));
 
   $(".color-cycle").firstChild.textContent = name;
-  $('.session-team[data-team="1"] .title').textContent = name;
   $('.roster-column[data-team="1"] .roster-head').textContent = name;
 }
 
@@ -250,6 +335,8 @@ function changePlayerCount(teamIndex, delta) {
 }
 
 function showSetup() {
+  closeMenu();
+  closeLog();
   state.running = false;
   state.paused = false;
   releaseWakeLock();
@@ -290,11 +377,17 @@ function remainingMs() {
   return state.paused ? state.pausedRemaining : state.endAt - Date.now();
 }
 
+function formatTime(totalSeconds) {
+  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
 // Timer ended (or skipped): the swap happens and the next timer starts right away.
-function substitute(at) {
-  state.steps.push(state.teams.map(advance));
+function substitute(at, skipped = false) {
+  const swaps = state.teams.map((team) => (advance(team) ? team.history[team.history.length - 1] : null));
+  state.steps.push({ at, skipped, swaps });
   state.flashUntil = at + FLASH_MS;
   startInterval(at);
+  if (!$("#log").hidden) renderLog();
 }
 
 function update() {
@@ -313,6 +406,8 @@ function update() {
   } else if (flashShown && Date.now() >= state.flashUntil) {
     renderSession();
     state.lastShownSecond = -1;
+  } else if (isSecondHalf() !== shownSecondHalf) {
+    renderSession();
   }
 
   renderTimer();
@@ -334,7 +429,7 @@ function togglePause() {
 
 function skip() {
   if (!state.running) return;
-  substitute(Date.now());
+  substitute(Date.now(), true);
   if (state.paused) state.pausedRemaining = state.intervalSeconds * 1000;
   alertSound();
   renderSession();
@@ -346,9 +441,10 @@ function skip() {
 function back() {
   if (!state.running) return;
 
-  const swapped = state.steps.pop();
-  if (swapped) {
-    swapped.forEach((didSwap, i) => { if (didSwap) undo(state.teams[i]); });
+  // Undone substitutions leave the log, since they didn't really happen.
+  const step = state.steps.pop();
+  if (step) {
+    step.swaps.forEach((swap, i) => { if (swap) undo(state.teams[i]); });
   }
 
   state.flashUntil = 0;
@@ -360,38 +456,57 @@ function back() {
 }
 
 let flashShown = false;
+let shownSecondHalf = false;
+
+function isSecondHalf() {
+  return remainingMs() <= state.intervalSeconds * 500;
+}
 
 function renderSession() {
   flashShown = !state.paused && Date.now() < state.flashUntil;
+  shownSecondHalf = isSecondHalf();
 
   $("#band").classList.toggle("alert", flashShown);
-  $("#phase").textContent = state.paused ? "PAUSED"
-    : flashShown ? "SUBSTITUTE NOW"
-    : "NEXT SUBSTITUTION IN";
-  $("#pause").textContent = state.paused ? "RESUME" : "PAUSE";
-
-  const lastStep = state.steps[state.steps.length - 1];
+  $("#paused-label").hidden = !state.paused;
 
   for (const panel of $$(".session-team")) {
-    const teamIndex = Number(panel.dataset.team);
-    const team = state.teams[teamIndex];
-    const last = team.history[team.history.length - 1];
-    const previous = team.history[team.history.length - 2];
+    const team = state.teams[Number(panel.dataset.team)];
+    const [due, afterDue] = upcomingSwaps(team, 2);
 
-    // Shows the swap made when the last timer ended; it only changes when a timer ends.
-    $(".sub-label", panel).textContent = !last ? (hasBench(team) ? "NO SUBSTITUTION YET" : "NO SUBSTITUTES")
-      : flashShown && lastStep && lastStep[teamIndex] ? "SWAP NOW"
-      : `SUBSTITUTION ${team.history.length}`;
+    // First half: big = swap just made, small = swap due at 0:00.
+    // Second half: big = swap due at 0:00 (it stays big through the alarm), small = the one after.
+    const current = shownSecondHalf ? due : team.history[team.history.length - 1];
+    const next = shownSecondHalf ? afterDue : due;
 
-    $(".chip.in .name", panel).textContent = last ? last.inName : "-";
-    $(".chip.out .name", panel).textContent = last ? last.outName : "-";
-    $(".chip.in", panel).classList.toggle("active", !!last);
-    $(".chip.out", panel).classList.toggle("active", !!last);
+    $(".chip.in .name", panel).textContent = current ? current.inName : "-";
+    $(".chip.out .name", panel).textContent = current ? current.outName : "-";
+    $(".chip.in", panel).classList.toggle("active", !!current);
+    $(".chip.out", panel).classList.toggle("active", !!current);
 
-    $(".previous", panel).textContent = previous
-      ? `Previous: ${previous.inName} in, ${previous.outName} out`
-      : "Previous: -";
+    $(".mini.in", panel).textContent = next ? next.inName : "-";
+    $(".mini.out", panel).textContent = next ? next.outName : "-";
+    $(".mini.in", panel).classList.toggle("active", !!next);
+    $(".mini.out", panel).classList.toggle("active", !!next);
   }
+}
+
+// STOP needs a second tap so a stray touch mid-game doesn't end the session.
+const STOP_CONFIRM_MS = 3000;
+let stopArmedTimer = 0;
+
+function resetStopButton() {
+  clearTimeout(stopArmedTimer);
+  stopArmedTimer = 0;
+  $("#stop").textContent = "STOP";
+}
+
+function pressStop() {
+  if (stopArmedTimer) {
+    showSetup();
+    return;
+  }
+  $("#stop").textContent = "SURE?";
+  stopArmedTimer = setTimeout(resetStopButton, STOP_CONFIRM_MS);
 }
 
 function renderTimer() {
@@ -402,7 +517,7 @@ function renderTimer() {
   state.lastShownSecond = seconds;
 
   const time = $("#time");
-  time.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  time.textContent = formatTime(seconds);
   time.classList.toggle("paused", state.paused);
   time.classList.toggle("warn", !state.paused && !flashShown && seconds <= 10);
 }
@@ -419,6 +534,7 @@ function showMessage(text) {
 }
 
 function openRoster() {
+  closeMenu();
   $("#roster-message").textContent = "";
   for (const input of $$(".add-row input")) input.value = "";
   rosterPanel.hidden = false;
@@ -490,7 +606,8 @@ function removePlayer(teamIndex, index) {
     return;
   }
   const [name] = names.splice(index, 1);
-  showMessage(index < ON_COURT ? `${name} removed, ${names[ON_COURT - 1]} goes on court` : `${name} removed`);
+  const text = index < ON_COURT ? `${name} removed, ${names[ON_COURT - 1]} goes on court` : `${name} removed`;
+  showMessage(text);
   rosterChanged();
 }
 
@@ -640,12 +757,23 @@ $(".color-cycle").addEventListener("click", () => {
 });
 
 $("#start").addEventListener("click", startSession);
-$("#pause").addEventListener("click", togglePause);
+$("#time").addEventListener("click", togglePause);
 $("#back").addEventListener("click", back);
 $("#skip").addEventListener("click", skip);
 $("#players").addEventListener("click", openRoster);
-$("#stop").addEventListener("click", showSetup);
+$("#open-log").addEventListener("click", openLog);
+$("#stop").addEventListener("click", pressStop);
 $("#roster-close").addEventListener("click", closeRoster);
+$("#log-close").addEventListener("click", closeLog);
+
+$("#menu-button").addEventListener("click", () => {
+  if ($("#menu").hidden) openMenu();
+  else closeMenu();
+});
+// Tapping anywhere outside the menu closes it.
+document.addEventListener("pointerdown", (e) => {
+  if (!$("#menu").hidden && !e.target.closest("#menu, #menu-button")) closeMenu();
+});
 
 for (const form of $$(".add-row")) {
   const teamIndex = Number(form.closest(".roster-column").dataset.team);
